@@ -1,0 +1,14 @@
+{
+  "name": "ttt-nakama-server",
+  "version": "1.0.0",
+  "description": "Nakama server modules for multiplayer Tic-Tac-Toe",
+  "scripts": {
+    "build": "npx tsc"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0"
+  },
+  "dependencies": {
+    "nakama-common": "https://github.com/heroiclabs/nakama-common"
+  }
+}

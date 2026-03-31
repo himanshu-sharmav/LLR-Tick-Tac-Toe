@@ -1,0 +1,14 @@
+# Multi-stage build: compile TypeScript → copy into Nakama image
+FROM node:20-alpine AS builder
+
+WORKDIR /build
+COPY nakama/package.json nakama/package-lock.json* ./
+RUN npm install
+COPY nakama/tsconfig.json ./
+COPY nakama/src ./src
+RUN npx tsc
+
+# Production Nakama image
+FROM heroiclabs/nakama:3.24.2
+
+COPY --from=builder /build/build/*.js /nakama/data/modules/

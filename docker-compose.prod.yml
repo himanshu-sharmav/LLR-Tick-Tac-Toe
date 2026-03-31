@@ -1,0 +1,56 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:12.2-alpine
+    container_name: ttt-postgres
+    environment:
+      POSTGRES_DB: nakama
+      POSTGRES_USER: nakama
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme_in_production}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "nakama"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: always
+    networks:
+      - backend
+
+  nakama:
+    build:
+      context: .
+      dockerfile: Dockerfile.nakama
+    container_name: ttt-nakama
+    entrypoint:
+      - /bin/sh
+      - -ecx
+      - >
+        /nakama/nakama migrate up
+        --database.address nakama:${DB_PASSWORD:-changeme_in_production}@postgres:5432/nakama?sslmode=disable &&
+        /nakama/nakama
+        --name nakama-ttt
+        --database.address nakama:${DB_PASSWORD:-changeme_in_production}@postgres:5432/nakama?sslmode=disable
+        --logger.level INFO
+        --session.token_expiry_sec 7200
+        --socket.server_key ${NAKAMA_SERVER_KEY:-defaultkey}
+        --session.encryption_key ${NAKAMA_ENCRYPTION_KEY:-defaultencryptionkey}
+        --runtime.http_key ${NAKAMA_HTTP_KEY:-defaulthttpkey}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "7350:7350"
+      - "7351:7351"
+    restart: always
+    networks:
+      - backend
+
+volumes:
+  pgdata:
+
+networks:
+  backend:
+    driver: bridge
