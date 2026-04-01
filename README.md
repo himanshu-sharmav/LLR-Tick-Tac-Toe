@@ -2,7 +2,11 @@
 
 A production-ready, server-authoritative multiplayer Tic-Tac-Toe game built with Nakama game server and React.
 
-**Live**: http://13.233.94.222
+**Live Game**: http://13.233.94.222
+
+**Nakama Server Endpoint**: http://13.233.94.222/v2 (WebSocket: ws://13.233.94.222/v2/ws)
+
+**Nakama Console**: http://13.233.94.222/console (admin / password)
 
 ## Architecture
 
