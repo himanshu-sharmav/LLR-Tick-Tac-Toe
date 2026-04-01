@@ -121,7 +121,7 @@ export async function findMatch(mode: 'classic' | 'timed'): Promise<void> {
 
   try {
     const session = store.session!;
-    const result = await client.rpc(session, 'find_match', JSON.stringify({ mode }));
+    const result = await client.rpc(session, 'find_match', { mode });
     const payloadData = typeof result.payload === 'string' ? JSON.parse(result.payload) : result.payload;
     const { matchId } = payloadData;
 
@@ -181,7 +181,7 @@ export async function fetchLeaderboard(limit: number = 20): Promise<void> {
 
   try {
     const session = store.session!;
-    const result = await client.rpc(session, 'get_leaderboard', JSON.stringify({ limit }));
+    const result = await client.rpc(session, 'get_leaderboard', { limit });
     const payloadData = typeof result.payload === 'string' ? JSON.parse(result.payload) : result.payload;
     const data = payloadData;
     store.setLeaderboard(data.entries || []);
