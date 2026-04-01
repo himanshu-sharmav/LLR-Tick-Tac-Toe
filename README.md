@@ -2,15 +2,17 @@
 
 A production-ready, server-authoritative multiplayer Tic-Tac-Toe game built with Nakama game server and React.
 
+**Live**: http://13.233.94.222
+
 ## Architecture
 
 ```
-                                  WebSocket
-  React + Zustand  ◄──────────────────────────►  Nakama Server (TS Runtime)
-  (Vite, Tailwind)        @heroiclabs/nakama-js        │
-       │                                               │
-    Vercel                                         PostgreSQL
-                                                   (Docker)
+                          Port 80 (nginx reverse proxy)
+  Browser  ──────────────────────────────────────────────►  AWS EC2
+                                                            ├── nginx (reverse proxy)
+            /           → Frontend (React SPA)              ├── frontend (nginx serving static)
+            /v2/, /ws   → Nakama API + WebSocket            ├── nakama (game server)
+                                                            └── postgres (database)
 ```
 
 ### Key Design Decisions
@@ -68,7 +70,7 @@ A production-ready, server-authoritative multiplayer Tic-Tac-Toe game built with
 - **Backend**: Nakama 3.24.2 (TypeScript runtime)
 - **Database**: PostgreSQL 12
 - **Client SDK**: @heroiclabs/nakama-js
-- **Deployment**: Docker Compose + AWS EC2 (backend) + Vercel (frontend)
+- **Deployment**: Docker Compose + AWS EC2 (all-in-one with nginx reverse proxy)
 
 ## Features
 
@@ -111,8 +113,11 @@ A production-ready, server-authoritative multiplayer Tic-Tac-Toe game built with
 │   ├── vite.config.ts
 │   └── package.json
 ├── deployment/
-│   ├── nginx.conf             # Reverse proxy + TLS
+│   ├── nginx.conf             # Reverse proxy (routes / → frontend, /v2 → nakama)
+│   ├── frontend-nginx.conf    # SPA static file server
 │   └── deploy.sh              # EC2 setup script
+├── Dockerfile.frontend        # Multi-stage frontend build
+├── .env.example               # Environment variable template
 └── README.md
 ```
 
@@ -156,63 +161,60 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000
+Open http://localhost:5173
 
 ### 4. Test Multiplayer
 
-1. Open http://localhost:3000 in two separate browser windows (or incognito)
+1. Open http://localhost:5173 in two separate browser windows (or incognito)
 2. Enter different nicknames in each
 3. Both click "Find Match" → they should join the same match
 4. Play the game! Moves appear in real-time on both windows
 
-## Production Deployment
+## Production Deployment (AWS EC2)
 
-### Nakama Server (AWS EC2)
+The entire stack (frontend + backend + database) runs on a single EC2 instance behind an nginx reverse proxy.
 
-1. Launch an Ubuntu 22.04 EC2 instance (t3.small minimum)
-2. Configure security group: allow ports 22, 80, 443, 7350, 7351
-3. SSH into the instance and run the setup script:
+### Quick Deploy
+
+1. Launch an Ubuntu 22.04 EC2 instance (`t3.small` minimum)
+2. Security group: allow inbound TCP ports **22** (SSH) and **80** (HTTP)
+3. Upload and deploy:
 
 ```bash
-ssh ubuntu@<EC2_IP> 'bash -s' < deployment/deploy.sh
+# Upload project files
+scp -r . ubuntu@<EC2_IP>:/opt/ttt-server/
+
+# SSH in and run deploy script
+ssh ubuntu@<EC2_IP> 'cd /opt/ttt-server && bash deployment/deploy.sh'
 ```
 
-4. Copy project files to `/opt/ttt-server` on the EC2 instance
-5. Create `.env` with production secrets:
+The deploy script automatically:
+- Installs Docker if not present
+- Generates `.env` with random secrets and auto-detects the public IP
+- Builds all 4 containers (postgres, nakama, frontend, nginx)
+- Starts the production stack
+
+### Manual Deploy
 
 ```bash
-DB_PASSWORD=<random_32_char_string>
-NAKAMA_SERVER_KEY=<random_32_char_string>
-NAKAMA_ENCRYPTION_KEY=<random_32_char_string>
-NAKAMA_HTTP_KEY=<random_32_char_string>
-```
+# 1. Copy .env.example and edit
+cp .env.example .env
+# Set PUBLIC_HOST to your EC2 public IP
 
-6. Build and start:
-
-```bash
+# 2. Build and start
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-7. Setup TLS with Certbot:
+### Production Architecture
 
-```bash
-sudo certbot --nginx -d your-domain.com
-```
+| Container | Role | Internal Port |
+|-----------|------|--------------|
+| `ttt-nginx` | Reverse proxy, exposed on port 80 | 80 |
+| `ttt-frontend` | Serves React SPA (nginx) | 80 |
+| `ttt-nakama` | Game server (API + WebSocket) | 7350, 7351 |
+| `ttt-postgres` | Database | 5432 |
 
-### Frontend (Vercel)
-
-1. Push frontend to GitHub
-2. Import in Vercel
-3. Set environment variables:
-
-```
-VITE_NAKAMA_HOST=your-domain.com
-VITE_NAKAMA_PORT=443
-VITE_NAKAMA_SSL=true
-VITE_NAKAMA_KEY=<your_server_key>
-```
-
-4. Deploy
+Nginx routes: `/` → frontend, `/v2/` and `/ws` → Nakama API/WebSocket, `/console` → Nakama admin console.
 
 ## Environment Variables
 
