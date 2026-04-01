@@ -21,6 +21,9 @@ pgdata/
 *.swp
 *.swo
 
+# SSH keys
+*.pem
+
 # Logs
 *.log
 npm-debug.log*
