@@ -176,12 +176,30 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   // Handle UPDATE from server
   handleUpdate: (data) => {
-    set({
-      board: data.board,
-      currentTurn: data.currentTurn,
-      secondsLeft: data.deadline > 0 ? data.deadline : get().secondsLeft,
-      errorMessage: null,
-    });
+    const state = get();
+
+    // In timed mode, restart the countdown interval for the new turn
+    if (state.mode === 'timed' && data.deadline > 0) {
+      if (state.timerInterval) clearInterval(state.timerInterval);
+      const timerInterval = setInterval(() => {
+        const s = get().secondsLeft;
+        if (s > 0) set({ secondsLeft: s - 1 });
+      }, 1000);
+      set({
+        board: data.board,
+        currentTurn: data.currentTurn,
+        secondsLeft: data.deadline,
+        timerInterval,
+        errorMessage: null,
+      });
+    } else {
+      set({
+        board: data.board,
+        currentTurn: data.currentTurn,
+        secondsLeft: data.deadline > 0 ? data.deadline : state.secondsLeft,
+        errorMessage: null,
+      });
+    }
   },
 
   // Handle DONE from server
